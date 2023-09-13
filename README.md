@@ -42,3 +42,5 @@ project structure:
 ```
 The input file 'input.txt' should be placed alongside the executable 'Box_test.exe'.
 
+![](./out/box_test.png)
+
