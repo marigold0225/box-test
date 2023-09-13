@@ -1,0 +1,11 @@
+numEvents=1000
+timestep=0.02
+totalTime=20
+seed=5555
+numProtons=24
+numPions=1440
+kT=0.155
+boxSize=20.0
+desiredCellSize=1
+cdfResolution=1000
+maxP=2.0
