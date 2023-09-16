@@ -142,10 +142,7 @@ double Simulation::collisionProbability(const Particle &particle1, const Particl
     double totalPz = particle1.pz + particle2.pz;
 
     double scm = totalEnergy * totalEnergy - (totalPx * totalPx + totalPy * totalPy + totalPz * totalPz);
-    double p_lab = (scm - M_proton * M_proton - M_pion * M_pion) / 2 / M_proton;
-    p_lab = std::sqrt(pow(p_lab, 2) - M_pion * M_proton);
     double q = sqrt((scm - pow((M_proton + M_pion), 2)) * (scm - pow((M_proton - M_pion), 2))) / (2 * sqrt(scm));
-
     double Gamma = 0.47 * q * q * q / (M_pion * M_pion + 0.6 * q * q);
     double A = 4 * M_delta0 * M_delta0 * Gamma / (pow((scm - M_delta0 * M_delta0), 2) + M_delta0 * M_delta0 * Gamma * Gamma) / 0.948;
 
@@ -157,16 +154,16 @@ double Simulation::collisionProbability(const Particle &particle1, const Particl
     double v_rel_z = (vz1 - vz2);
     double v = sqrt(v_rel_x * v_rel_x + v_rel_y * v_rel_y + v_rel_z * v_rel_z);
 
-    double cross_sections = 2 * acos(-1) * Gamma * A / q / q;
+    double cross_sections = 4 * 0.197 * 0.197 * 2 * acos(-1) * Gamma * A / q / q / 3;
 
     double dV = 27 * box.getCellVolume();
 
-    double P = 0.197 * 0.197 * cross_sections * v * dt / dV;
+    double P = cross_sections * v * dt / dV;
 
     if (P > 1.0 || P < 0.0)
     {
         std::cerr << "Error: Invalid probability value for collision: " << P << std::endl;
-        exit(1); // or handle the error in another way
+        exit(1);
     }
 
     return P;
@@ -250,29 +247,29 @@ Particle Simulation::createDeltaFromCollision(const Particle &p1, const Particle
 //}
 
 // decay process --------------------------------
-double Simulation::decayProbability(const Particle &particle)
+std::pair<double, double> Simulation::decayProbability(const Particle &particle)
 {
 
     const double M_delta0 = Particle::getMass(DELTA);
     const double M_pion = Particle::getMass(PION);
     const double M_proton = Particle::getMass(PROTON);
-    double scm = M_delta0 * M_delta0;
 
+    double scm = particle.mass * particle.mass;
     double q = sqrt((scm - pow((M_proton + M_pion), 2)) * (scm - pow((M_proton - M_pion), 2))) / (2 * sqrt(scm));
 
     double Gamma = 0.47 * q * q * q / (M_pion * M_pion + 0.6 * q * q);
 
-    double gamma = particle.energy / M_delta0;
+    double gamma = particle.energy / particle.mass;
 
-    double P = Gamma * dt / gamma / 0.197;
-
+//    double P = Gamma * dt / gamma / 0.197;
+    double P = 1 - exp( - dt * Gamma / 0.197);
     if (P > 1.0 || P < 0.0)
     {
         std::cerr << "Error: Invalid probability value for decay: " << P << std::endl;
-        exit(1); // or handle the error in another way
+        exit(1);
     }
 
-    return P;
+    return {P, Gamma / gamma/0.197};
 }
 
 bool Simulation::decayOccurs(const Particle &deltaParticle)
@@ -280,8 +277,7 @@ bool Simulation::decayOccurs(const Particle &deltaParticle)
     // Ensure the particle is of type DELTA
     if (deltaParticle.type != DELTA)
         return false;
-
-    double decayProb = decayProbability(deltaParticle);
+    auto [decayProb, ratio] = decayProbability(deltaParticle);
 
     // Return true if the random value is less than the decay probability
     return dist(gen) < decayProb;
@@ -330,6 +326,11 @@ void Simulation::processInteractions(int currentStep)
     std::vector<Particle> newParticles;
     std::unordered_set<size_t> indicesToRemoveSet; // 使用unordered_set而不是vector
     auto &particles = box.getParticles();
+    initialDeltaCounts.push_back(box.countParticles(DELTA));
+    
+    if (decayCountsPerStep.size() <= currentStep){
+        decayCountsPerStep.push_back(0);
+    }
 
     for (size_t i = 0; i < particles.size(); ++i)
     {
@@ -341,14 +342,22 @@ void Simulation::processInteractions(int currentStep)
             continue;
         }
 
-        if (currentParticle.type == DELTA && decayOccurs(currentParticle))
+        if (currentParticle.type == DELTA)
         {
-            auto [proton, pion] = createProtonAndPionFromDecay(currentParticle, currentStep);
+            auto [P, ratio] = decayProbability(currentParticle);
+            if (dist(gen) < P)
+            {
+                auto [proton, pion] = createProtonAndPionFromDecay(currentParticle, currentStep);
 
-            indicesToRemoveSet.insert(i);
+                indicesToRemoveSet.insert(i);
 
-            newParticles.push_back(proton);
-            newParticles.push_back(pion);
+                newParticles.push_back(proton);
+                newParticles.push_back(pion);
+
+                decayRatios.push_back(ratio);
+                decayCountsPerStep[currentStep] +=1;
+            }
+
         }
         else if (currentParticle.type == PROTON || currentParticle.type == PION)
         {
@@ -380,7 +389,6 @@ void Simulation::processInteractions(int currentStep)
             }
         }
     }
-
     // 删除粒子
     std::vector<size_t> indicesToRemove(indicesToRemoveSet.begin(), indicesToRemoveSet.end());
     std::sort(indicesToRemove.rbegin(), indicesToRemove.rend());
@@ -418,6 +426,8 @@ void Simulation::run()
         std::cout << "events:==" << event << std::endl;
         //        outputEventHeader(event);
 
+        decayCountsPerStep.clear();
+        initialDeltaCounts.clear();
         initializeParticles();
         for (int i = 0; i < steps; ++i)
         {
@@ -426,6 +436,7 @@ void Simulation::run()
 
             updateParticlePositions();
             outputCurrentState(i);
+         //   outputLastState(i);
         }
     }
     outFile.close();
@@ -464,36 +475,40 @@ void Simulation::outputEventHeader(int eventNumber)
 
 void Simulation::outputCurrentState(int step)
 {
-    std::map<ParticleType, int> particleCounts = box.countParticles();
-    double totalEnergy = 0.0;
-
-    // Calculate the total energy of all particles
-    for (const Particle &particle : box.getParticles())
+    double avgRatio = 0.0;
+    if (!decayRatios.empty())
     {
-        totalEnergy += particle.energy;
+        for (double ratio : decayRatios)
+        {
+            avgRatio += ratio;
+        }
+        avgRatio /= decayRatios.size();
     }
-    bool check = false;
+    decayRatios.clear();
+
     if (outFile.is_open())
     {
         // If it's the first time step, write the header
         if (step == 0)
         {
-            outFile << "Time step,PROTON,PION,DELTA,Total Energy" << std::endl;
+            outFile << "Time step,PROTON,PION,DELTA,DecayRate,AverageRatio" << std::endl;
         }
-
+        double decayRate = 0.0;
+        if (step < decayCountsPerStep.size() && initialDeltaCounts[step] != 0)
+        {
+            int decayCount = decayCountsPerStep[step];
+            decayRate = static_cast<double>(decayCount) / dt / initialDeltaCounts[step];
+        }
         // Write data
         outFile << step << ","
-                << particleCounts[PROTON] << ","
-                << particleCounts[PION] << ","
-                << particleCounts[DELTA] << ","
-                << totalEnergy
+                << box.countParticles(PROTON) << ","
+                << box.countParticles(PION) << ","
+                << box.countParticles(DELTA) << ","
+                << decayRate << ","
+                << avgRatio
                 << std::endl;
 
-        if (particleCounts[PROTON] + particleCounts[PION] + 2 * particleCounts[DELTA] != numPions + numProtons)
-        {
-            check = true;
-        }
-        if (check)
+        if (box.countParticles(PROTON) + box.countParticles(PION) + 2 * box.countParticles(DELTA) != numPions + numProtons)
         {
             std::cerr << "Error: Particle conservation violated at step " << step << std::endl;
             exit(-1);
@@ -502,5 +517,57 @@ void Simulation::outputCurrentState(int step)
     else
     {
         std::cerr << "Unable to open file for writing." << std::endl;
+    }
+}
+
+void Simulation::outputLastState(int step)
+{
+    if (outFile.is_open())
+    {
+        // If it's the last time step, write the particle information
+        if (step == totalTime / dt - 1)
+        {
+            // Write header
+            outFile << "Particle Type,px,py,pz,x,y,z" << std::endl;
+
+            // Write data for each particle
+            for (const Particle &particle : box.getParticles())
+            {
+                outFile << particleTypeToString(particle.type) << ","
+                        << particle.px << ","
+                        << particle.py << ","
+                        << particle.pz << ","
+                        << particle.x << ","
+                        << particle.y << ","
+                        << particle.z
+                        << std::endl;
+            }
+
+            // Check for particle conservation
+            if (box.countParticles(PROTON) + box.countParticles(PION) + 2 * box.countParticles(DELTA) != numPions + numProtons)
+            {
+                std::cerr << "Error: Particle conservation violated at step " << step << std::endl;
+                exit(-1);
+            }
+        }
+    }
+    else
+    {
+        std::cerr << "Unable to open file for writing." << std::endl;
+    }
+}
+
+std::string Simulation::particleTypeToString(ParticleType type)
+{
+    switch (type)
+    {
+    case PROTON:
+        return "PROTON";
+    case PION:
+        return "PION";
+    case DELTA:
+        return "DELTA";
+    default:
+        return "UNKNOWN";
     }
 }

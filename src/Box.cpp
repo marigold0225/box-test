@@ -1,20 +1,16 @@
 #include "Box.h"
 
-std::map<ParticleType, int> Box::countParticles() const
+int Box::countParticles(ParticleType type) const
 {
-    std::map<ParticleType, int> countMap;
-
-    for (int i = PROTON; i <= DELTA; ++i)
-    {
-        countMap[static_cast<ParticleType>(i)] = 0;
-    }
-
+    int count = 0;
     for (const Particle &particle : particles)
     {
-        countMap[particle.type]++;
+        if (particle.type == type)
+        {
+            count++;
+        }
     }
-
-    return countMap;
+    return count;
 }
 
 void Box::addParticle(const Particle &p)

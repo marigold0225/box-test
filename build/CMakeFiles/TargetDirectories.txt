@@ -1,0 +1,5 @@
+E:/Documents/Dr/code/box_test - Copy/build/CMakeFiles/Box_test.dir
+E:/Documents/Dr/code/box_test - Copy/build/CMakeFiles/package.dir
+E:/Documents/Dr/code/box_test - Copy/build/CMakeFiles/package_source.dir
+E:/Documents/Dr/code/box_test - Copy/build/CMakeFiles/edit_cache.dir
+E:/Documents/Dr/code/box_test - Copy/build/CMakeFiles/rebuild_cache.dir

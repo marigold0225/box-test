@@ -1,5 +1,5 @@
 numEvents=1000
-timestep=0.02
+timestep=0.2
 totalTime=20
 seed=5555
 numProtons=24

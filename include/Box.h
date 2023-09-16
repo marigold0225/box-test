@@ -17,7 +17,7 @@ private:
 public:
     int gridSize;
     std::vector<Particle *> getNeighboringParticles(double x, double y, double z);
-    std::map<ParticleType, int> countParticles() const;
+    int countParticles(ParticleType type) const;
     std::vector<Particle> &getParticles() { return particles; }
     void setSize(double s) { size = s; }
     double getSize() const { return size; }
