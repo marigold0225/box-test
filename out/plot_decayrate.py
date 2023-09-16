@@ -1,6 +1,5 @@
-import pandas as pd
 import matplotlib.pyplot as plt
-
+import pandas as pd
 
 # 读取文件内容
 with open("./particles.csv", "r") as f:
@@ -48,17 +47,17 @@ print("rate:=", final_rate)
 # 绘制结果
 plt.figure(figsize=(10, 6))
 plt.plot(
-    0.02 * avg_data["Time step"],
-    50*avg_data["DecayRate"],
+    0.2 * avg_data["Time step"],
+    avg_data["DecayRate"],
     label=r"$dN_{\delta}/{N_\Delta}$",
     color="green",
 )
-#plt.plot(
-#    0.02 * avg_data["Time step"],
-#    avg_data["AverageRatio"],
-#    label=r"$\Gamma / \gamma$",
-#    color="red",
-#)
+plt.plot(
+    0.2 * avg_data["Time step"],
+    avg_data["AverageRatio"],
+    label=r"$\Gamma / \gamma$",
+    color="red",
+)
 # plt.plot(0.02 * avg_data["Time step"], avg_data["PROTON"], label="PROTON", color="blue")
 # plt.plot(0.02 * avg_data["Time step"], avg_data["PION"], label="PION", color="green")
 # plt.plot(0.02 * avg_data["Time step"], avg_data["DELTA"], label="DELTA", color="red")
@@ -66,7 +65,7 @@ plt.xlabel("Time step")
 plt.xscale("log")
 plt.yscale("log")
 plt.xlim(0.05, 20)
-plt.ylim(0.01,100)
+plt.ylim(0.01, 100)
 plt.ylabel("Values")
 plt.title("Average DecayRate and Average Ratio vs Time Step")
 plt.legend()
